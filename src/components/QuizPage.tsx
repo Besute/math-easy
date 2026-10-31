@@ -4,7 +4,7 @@ import { questions } from "../data/questions";
 
 type QuizPageProps = { onBack: () => void; onTheory: () => void };
 type QuizDefinition = { id: string; title: string; description: string; questionIds: number[] };
-type Attempt = { id: string; quizId: string; questionIds: number[]; order: number[]; index: number; score: number; selected: number | null; seconds: number; elapsedSeconds: number; wrongAnswers: number };
+type Attempt = { id: string; quizId: string; questionIds: number[]; order: number[]; index: number; answerOrder: number[]; score: number; selected: number | null; seconds: number; elapsedSeconds: number; wrongAnswers: number };
 type CompletedQuiz = { id: string; quizId: string; score: number; total: number; elapsedSeconds: number; wrongAnswers: number; completedAt: number };
 const STORAGE_KEY = "matematika-prosto-quiz-attempt";
 const COMPLETED_KEY = "matematika-prosto-completed-quizzes";
@@ -24,7 +24,32 @@ const quizFilterIds: Record<string, string[]> = {
   "Основы": ["basics"], "Сравнение": ["compare"], "Сложение": ["addition"], "Вычитание": ["subtraction"],
   "Умножение": ["multiplication"], "Деление": ["division"], "Смешанные числа": ["mixed"],
 };
-const freshAttempt = (quiz: QuizDefinition): Attempt => ({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, quizId: quiz.id, questionIds: quiz.questionIds, order: quiz.questionIds.map((_, index) => index), index: 0, score: 0, selected: null, seconds: 60, elapsedSeconds: 0, wrongAnswers: 0 });
+function shuffleArray<T>(items: T[]) {
+  const order = [...items];
+  for (let index = order.length - 1; index > 0; index -= 1) {
+    const randomIndex = Math.floor(Math.random() * (index + 1));
+    [order[index], order[randomIndex]] = [order[randomIndex], order[index]];
+  }
+  return order;
+}
+
+function shuffledOrder(length: number) {
+  return shuffleArray(Array.from({ length }, (_, index) => index));
+}
+
+function shuffledAnswerOrder(length: number) {
+  const order = shuffledOrder(length);
+  if (order.length > 1 && order.every((answerIndex, index) => answerIndex === index)) {
+    [order[0], order[1]] = [order[1], order[0]];
+  }
+  return order;
+}
+
+const freshAttempt = (quiz: QuizDefinition): Attempt => {
+  const order = shuffledOrder(quiz.questionIds.length);
+  const firstQuestion = questions[quiz.questionIds[order[0]]];
+  return { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, quizId: quiz.id, questionIds: quiz.questionIds, order, index: 0, answerOrder: shuffledAnswerOrder(firstQuestion.answers.length), score: 0, selected: null, seconds: 60, elapsedSeconds: 0, wrongAnswers: 0 };
+};
 
 function readCompletedQuizzes(): CompletedQuiz[] {
   try {
@@ -54,7 +79,11 @@ function readSavedAttempts(): Attempt[] {
       const order = [...savedOrder, ...questionIds.map((_, index) => index).filter((index) => !savedOrder.includes(index))];
       const index = Math.max(0, saved.index ?? 0);
       if (!order.length || order.length <= index) return [];
-      return [{ id: saved.id ?? `restored-${savedIndex}-${quiz.id}`, quizId: quiz.id, questionIds, order, index, score: Math.min(saved.score ?? 0, questionIds.length), selected: saved.selected ?? null, seconds: Math.max(0, Math.min(saved.seconds ?? 60, 60)), elapsedSeconds: saved.elapsedSeconds ?? Math.max(0, 60 - (saved.seconds ?? 60)), wrongAnswers: saved.wrongAnswers ?? 0 }];
+      const currentQuestion = questions[questionIds[order[index]]];
+      const savedAnswerOrder = Array.isArray(saved.answerOrder) ? saved.answerOrder : null;
+      const answerOrderIsValid = savedAnswerOrder?.length === currentQuestion.answers.length && new Set(savedAnswerOrder).size === currentQuestion.answers.length && savedAnswerOrder.every((answerIndex) => Number.isInteger(answerIndex) && answerIndex >= 0 && answerIndex < currentQuestion.answers.length);
+      const answerOrder = answerOrderIsValid && savedAnswerOrder ? savedAnswerOrder : saved.selected !== null && saved.selected !== undefined ? currentQuestion.answers.map((_, answerIndex) => answerIndex) : shuffledAnswerOrder(currentQuestion.answers.length);
+      return [{ id: saved.id ?? `restored-${savedIndex}-${quiz.id}`, quizId: quiz.id, questionIds, order, index, answerOrder, score: Math.min(saved.score ?? 0, questionIds.length), selected: saved.selected ?? null, seconds: Math.max(0, Math.min(saved.seconds ?? 60, 60)), elapsedSeconds: saved.elapsedSeconds ?? Math.max(0, 60 - (saved.seconds ?? 60)), wrongAnswers: saved.wrongAnswers ?? 0 }];
     });
   } catch { return []; }
 }
@@ -146,13 +175,13 @@ export function QuizPage({ onBack, onTheory }: QuizPageProps) {
 
   function chooseAnswer(answerIndex: number) {
     if (!attempt || !current || attempt.selected !== null || !running) return;
-    const correct = answerIndex === current.correctIndex;
+    const correct = attempt.answerOrder[answerIndex] === current.correctIndex;
     saveAttempt({ ...attempt, selected: answerIndex, score: correct ? attempt.score + 1 : attempt.score, wrongAnswers: correct ? attempt.wrongAnswers : attempt.wrongAnswers + 1 });
   }
 
   function nextQuestion() {
     if (!attempt || !current) return;
-    const isCorrect = attempt.selected === current.correctIndex;
+    const isCorrect = attempt.selected !== null && attempt.answerOrder[attempt.selected] === current.correctIndex;
     const remaining = attempt.order.slice(attempt.index + 1);
     if (!remaining.length && isCorrect && attempt.score >= attempt.questionIds.length - 1) {
       completeAttempt(attempt);
@@ -169,7 +198,8 @@ export function QuizPage({ onBack, onTheory }: QuizPageProps) {
       completeAttempt(attempt);
       return;
     }
-    saveAttempt({ ...attempt, order, index: nextIndex, selected: null });
+    const nextQuestion = questions[attempt.questionIds[order[nextIndex]]];
+    saveAttempt({ ...attempt, order, index: nextIndex, answerOrder: shuffledAnswerOrder(nextQuestion.answers.length), selected: null });
   }
 
   function returnToCatalog() {
@@ -203,11 +233,12 @@ export function QuizPage({ onBack, onTheory }: QuizPageProps) {
           <div className="quiz-meta"><span>РЕШЕНО {attempt.score} ИЗ {attempt.questionIds.length}</span></div>
           <h1>{current.question}</h1>
           <div className="answer-grid">{current.answers.map((answer, answerIndex) => {
-            const isCorrect = attempt.selected !== null && answerIndex === current.correctIndex;
-            const isWrong = attempt.selected === answerIndex && answerIndex !== current.correctIndex;
-            return <button key={answer} disabled={attempt.selected !== null} className={`answer ${isCorrect ? "correct" : ""} ${isWrong ? "wrong" : ""}`} onClick={() => chooseAnswer(answerIndex)}>{answer}{isCorrect && <CheckCircle2 />}{isWrong && <XCircle />}</button>;
+            const originalAnswerIndex = attempt.answerOrder[answerIndex];
+            const isCorrect = attempt.selected !== null && originalAnswerIndex === current.correctIndex;
+            const isWrong = attempt.selected === answerIndex && originalAnswerIndex !== current.correctIndex;
+            return <button key={`${answer}-${answerIndex}`} disabled={attempt.selected !== null} className={`answer ${isCorrect ? "correct" : ""} ${isWrong ? "wrong" : ""}`} onClick={() => chooseAnswer(answerIndex)}>{current.answers[originalAnswerIndex]}{isCorrect && <CheckCircle2 />}{isWrong && <XCircle />}</button>;
           })}</div>
-          {attempt.selected !== null && <div className={`explanation ${attempt.selected === current.correctIndex ? "good" : "bad"}`}><b>{attempt.selected === current.correctIndex ? "Верно! Отличная работа." : "Почти! Этот вопрос встретится ещё раз."}</b><p>{current.explanation}</p></div>}
+          {attempt.selected !== null && <div className={`explanation ${attempt.answerOrder[attempt.selected] === current.correctIndex ? "good" : "bad"}`}><b>{attempt.answerOrder[attempt.selected] === current.correctIndex ? "Верно! Отличная работа." : "Почти! Этот вопрос встретится ещё раз."}</b><p>{current.explanation}</p></div>}
           <div className="quiz-bottom"><span>{attempt.selected === null ? "Выбери один ответ" : "Ответ засчитан"}</span><button className="button blue" disabled={attempt.selected === null} onClick={nextQuestion}>Следующий вопрос <ChevronRight /></button></div>
         </section>
       ) : done && attempt ? (
