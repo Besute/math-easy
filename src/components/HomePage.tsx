@@ -1,10 +1,21 @@
-import { BookOpen, ChevronRight, Clock3, GraduationCap, Star, Trophy } from "lucide-react";
+import { useState } from "react";
+import { BookOpen, ChevronRight, Clock3, GraduationCap, Star, Calculator, Shapes, Sigma } from "lucide-react";
 
 type HomePageProps = {
   onNavigate: (view: "home" | "theory" | "quiz") => void;
 };
 
 export function HomePage({ onNavigate }: HomePageProps) {
+  const [activeCategory, setActiveCategory] = useState("Все темы");
+  const topics = [
+    { title: "Обыкновенные дроби", category: "Арифметика", description: "Научись понимать дроби и складывать части целого.", icon: <BookOpen />, available: true },
+    { title: "Десятичные дроби", category: "Арифметика", description: "Скоро появятся уроки и тренировка по теме.", icon: <Calculator />, available: false },
+    { title: "Фигуры и углы", category: "Геометрия", description: "Скоро появятся уроки и тренировка по теме.", icon: <Shapes />, available: false },
+    { title: "Выражения и уравнения", category: "Алгебра", description: "Скоро появятся уроки и тренировка по теме.", icon: <Sigma />, available: false },
+  ];
+  const categories = ["Все темы", "Арифметика", "Геометрия", "Алгебра"];
+  const visibleTopics = activeCategory === "Все темы" ? topics : topics.filter((topic) => topic.category === activeCategory);
+
   return (
     <main>
       <section className="hero">
@@ -16,7 +27,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
             <button className="button blue" onClick={() => onNavigate("quiz")}>Начать тренировку <ChevronRight /></button>
             <button className="button outline" onClick={() => onNavigate("theory")}><BookOpen /> Изучить теорию</button>
           </div>
-          <div className="hero-note"><span><Star /> Понятные объяснения</span><span><Clock3 /> Всего 2 минуты</span></div>
+          <div className="hero-note"><span><Star /> Понятные объяснения</span><span><Clock3 /> Всего 1 минута</span></div>
         </div>
         <div className="hero-visual" aria-hidden="true">
           <div className="orbit orbit-one" /><div className="orbit orbit-two" />
@@ -26,12 +37,11 @@ export function HomePage({ onNavigate }: HomePageProps) {
           <div className="tiny-spark">✦</div>
         </div>
       </section>
-      <section className="course-section">
-        <div className="section-title"><div><span className="eyebrow dark">ТВОЙ УЧЕБНЫЙ МАРШРУТ</span><h2>От «не понимаю» к «получилось!»</h2></div><p>Три простых шага, чтобы освоить дроби.</p></div>
+      <section className="course-section topic-catalog">
+        <div className="section-title"><div><span className="eyebrow dark">БИБЛИОТЕКА ТЕМ</span><h2>Что будем изучать?</h2></div><p>Выбирай тему и двигайся вперёд в удобном темпе.</p></div>
+        <div className="catalog-filters" aria-label="Категории тем" role="group">{categories.map((category) => <button key={category} type="button" aria-pressed={activeCategory === category} className={`catalog-filter ${activeCategory === category ? "active" : ""}`} onClick={() => setActiveCategory(category)}>{category}{category === "Все темы" && <span>{topics.length}</span>}</button>)}</div>
         <div className="course-grid">
-          <article className="course-card theory-card"><div className="card-top"><span className="step">01 / ТЕОРИЯ</span><span className="icon-bubble"><BookOpen /></span></div><h3>Разберись в правилах</h3><p>Наглядные примеры помогут понять числитель, знаменатель и действия с дробями.</p><button className="text-link" onClick={() => onNavigate("theory")}>Перейти к теории <ChevronRight /></button><div className="mini-fraction">2<span />5</div></article>
-          <article className="course-card quiz-card"><div className="card-top"><span className="step">02 / ПРАКТИКА</span><span className="icon-bubble"><Clock3 /></span></div><h3>Проверь себя</h3><p>8 вопросов на время. Выбирай ответ и сразу узнавай, почему он верный.</p><button className="text-link" onClick={() => onNavigate("quiz")}>Начать квиз <ChevronRight /></button><div className="mini-clock">02:00</div></article>
-          <article className="course-card progress-card"><div className="card-top"><span className="step">03 / РЕЗУЛЬТАТ</span><span className="icon-bubble"><Trophy /></span></div><h3>Увидь свой прогресс</h3><p>В конце получишь баллы, разбор ошибок и рекомендации, что повторить.</p><button className="text-link" onClick={() => onNavigate("quiz")}>Попробовать сейчас <ChevronRight /></button><div className="star-art">✦</div></article>
+          {visibleTopics.map((topic) => <article key={topic.title} className={`course-card catalog-card ${topic.available ? "theory-card" : "placeholder-card"}`}><div className="card-top"><span className="step">{topic.category.toUpperCase()}{topic.available ? " · 5–7 КЛАСС" : ""}</span><span className="icon-bubble">{topic.icon}</span></div><h3>{topic.title}</h3><p>{topic.description}</p>{topic.available ? <><div className="catalog-meta"><span>Теория</span><span>23 вопроса</span></div><button className="text-link" onClick={() => onNavigate("theory")}>Открыть тему <ChevronRight /></button><div className="mini-fraction">2<span />5</div></> : <span className="coming-soon">Скоро</span>}</article>)}
         </div>
       </section>
     </main>
