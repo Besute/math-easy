@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, BookOpen, CheckCircle2, ChevronRight, Clock3, LayoutGrid, Play, RotateCcw, Trophy, XCircle } from "lucide-react";
+import { ArrowLeft, BadgeCheck, BookOpen, CheckCircle2, ChevronRight, Clock3, LayoutGrid, Play, RotateCcw, Trophy, XCircle } from "lucide-react";
 import { questions } from "../data/questions";
 
 type QuizPageProps = { onBack: () => void; onTheory: () => void };
 type QuizDefinition = { id: string; title: string; description: string; questionIds: number[] };
-type Attempt = { id: string; quizId: string; questionIds: number[]; order: number[]; index: number; score: number; selected: number | null; seconds: number };
+type Attempt = { id: string; quizId: string; questionIds: number[]; order: number[]; index: number; score: number; selected: number | null; seconds: number; elapsedSeconds: number; wrongAnswers: number };
+type CompletedQuiz = { id: string; quizId: string; score: number; total: number; elapsedSeconds: number; wrongAnswers: number; completedAt: number };
 const STORAGE_KEY = "matematika-prosto-quiz-attempt";
+const COMPLETED_KEY = "matematika-prosto-completed-quizzes";
 const allIds = questions.map((_, index) => index);
 const quizDefinitions: QuizDefinition[] = [
   { id: "basics", title: "Основы дробей", description: "Понимание долей, равные и сокращённые дроби.", questionIds: [2, 4, 7, 11, 12] },
@@ -22,7 +24,22 @@ const quizFilterIds: Record<string, string[]> = {
   "Основы": ["basics"], "Сравнение": ["compare"], "Сложение": ["addition"], "Вычитание": ["subtraction"],
   "Умножение": ["multiplication"], "Деление": ["division"], "Смешанные числа": ["mixed"],
 };
-const freshAttempt = (quiz: QuizDefinition): Attempt => ({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, quizId: quiz.id, questionIds: quiz.questionIds, order: quiz.questionIds.map((_, index) => index), index: 0, score: 0, selected: null, seconds: 60 });
+const freshAttempt = (quiz: QuizDefinition): Attempt => ({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, quizId: quiz.id, questionIds: quiz.questionIds, order: quiz.questionIds.map((_, index) => index), index: 0, score: 0, selected: null, seconds: 60, elapsedSeconds: 0, wrongAnswers: 0 });
+
+function readCompletedQuizzes(): CompletedQuiz[] {
+  try {
+    const value = localStorage.getItem(COMPLETED_KEY);
+    if (!value) return [];
+    const parsed = JSON.parse(value) as CompletedQuiz[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch { return []; }
+}
+
+function formatDuration(seconds: number) {
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  return minutes ? `${minutes} мин ${String(remainder).padStart(2, "0")} сек` : `${remainder} сек`;
+}
 
 function readSavedAttempts(): Attempt[] {
   try {
@@ -37,13 +54,14 @@ function readSavedAttempts(): Attempt[] {
       const order = [...savedOrder, ...questionIds.map((_, index) => index).filter((index) => !savedOrder.includes(index))];
       const index = Math.max(0, saved.index ?? 0);
       if (!order.length || order.length <= index) return [];
-      return [{ id: saved.id ?? `restored-${savedIndex}-${quiz.id}`, quizId: quiz.id, questionIds, order, index, score: Math.min(saved.score ?? 0, questionIds.length), selected: saved.selected ?? null, seconds: Math.max(0, Math.min(saved.seconds ?? 60, 60)) }];
+      return [{ id: saved.id ?? `restored-${savedIndex}-${quiz.id}`, quizId: quiz.id, questionIds, order, index, score: Math.min(saved.score ?? 0, questionIds.length), selected: saved.selected ?? null, seconds: Math.max(0, Math.min(saved.seconds ?? 60, 60)), elapsedSeconds: saved.elapsedSeconds ?? Math.max(0, 60 - (saved.seconds ?? 60)), wrongAnswers: saved.wrongAnswers ?? 0 }];
     });
   } catch { return []; }
 }
 
 export function QuizPage({ onBack, onTheory }: QuizPageProps) {
   const [savedAttempts, setSavedAttempts] = useState<Attempt[]>(() => readSavedAttempts());
+  const [completedQuizzes, setCompletedQuizzes] = useState<CompletedQuiz[]>(() => readCompletedQuizzes());
   const [attempt, setAttempt] = useState<Attempt | null>(null);
   const [activeQuiz, setActiveQuiz] = useState<QuizDefinition | null>(null);
   const [activeFilter, setActiveFilter] = useState("Все темы");
@@ -60,10 +78,10 @@ export function QuizPage({ onBack, onTheory }: QuizPageProps) {
     if (!running || done || !attempt) return;
     const timer = window.setTimeout(() => {
       if (attempt.seconds <= 1) {
-        setAttempt((currentAttempt) => currentAttempt ? { ...currentAttempt, seconds: 0 } : currentAttempt);
+        setAttempt((currentAttempt) => currentAttempt ? { ...currentAttempt, seconds: 0, elapsedSeconds: currentAttempt.elapsedSeconds + 1 } : currentAttempt);
         setRunning(false);
       } else {
-        setAttempt((currentAttempt) => currentAttempt ? { ...currentAttempt, seconds: currentAttempt.seconds - 1 } : currentAttempt);
+        setAttempt((currentAttempt) => currentAttempt ? { ...currentAttempt, seconds: currentAttempt.seconds - 1, elapsedSeconds: currentAttempt.elapsedSeconds + 1 } : currentAttempt);
       }
     }, 1000);
     return () => window.clearTimeout(timer);
@@ -79,12 +97,28 @@ export function QuizPage({ onBack, onTheory }: QuizPageProps) {
   }, [attempt]);
 
   useEffect(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify(savedAttempts)); }, [savedAttempts]);
+  useEffect(() => { localStorage.setItem(COMPLETED_KEY, JSON.stringify(completedQuizzes)); }, [completedQuizzes]);
 
   const filteredQuizzes = activeFilter === "Все темы" ? quizDefinitions : quizDefinitions.filter((quiz) => quizFilterIds[activeFilter]?.includes(quiz.id));
   const currentQuiz = attempt ? quizDefinitions.find((quiz) => quiz.id === attempt.quizId) ?? quizDefinitions[quizDefinitions.length - 1] : null;
   const current = attempt ? questions[attempt.questionIds[attempt.order[attempt.index]]] : null;
   const time = attempt ? `${String(Math.floor(attempt.seconds / 60)).padStart(2, "0")}:${String(attempt.seconds % 60).padStart(2, "0")}` : "01:00";
   const progress = attempt ? Math.round((attempt.score / attempt.questionIds.length) * 100) : 0;
+
+  function completeAttempt(completedAttempt: Attempt) {
+    setDone(true);
+    setRunning(false);
+    setSavedAttempts((saved) => saved.filter((item) => item.id !== completedAttempt.id));
+    setCompletedQuizzes((completed) => [...completed, {
+      id: `${completedAttempt.id}-${Date.now()}`,
+      quizId: completedAttempt.quizId,
+      score: completedAttempt.score,
+      total: completedAttempt.questionIds.length,
+      elapsedSeconds: completedAttempt.elapsedSeconds,
+      wrongAnswers: completedAttempt.wrongAnswers,
+      completedAt: Date.now(),
+    }]);
+  }
 
   function startQuiz(quiz: QuizDefinition, attemptId?: string) {
     const fresh = freshAttempt(quiz);
@@ -112,7 +146,8 @@ export function QuizPage({ onBack, onTheory }: QuizPageProps) {
 
   function chooseAnswer(answerIndex: number) {
     if (!attempt || !current || attempt.selected !== null || !running) return;
-    saveAttempt({ ...attempt, selected: answerIndex, score: answerIndex === current.correctIndex ? attempt.score + 1 : attempt.score });
+    const correct = answerIndex === current.correctIndex;
+    saveAttempt({ ...attempt, selected: answerIndex, score: correct ? attempt.score + 1 : attempt.score, wrongAnswers: correct ? attempt.wrongAnswers : attempt.wrongAnswers + 1 });
   }
 
   function nextQuestion() {
@@ -120,9 +155,7 @@ export function QuizPage({ onBack, onTheory }: QuizPageProps) {
     const isCorrect = attempt.selected === current.correctIndex;
     const remaining = attempt.order.slice(attempt.index + 1);
     if (!remaining.length && isCorrect && attempt.score >= attempt.questionIds.length - 1) {
-      setDone(true);
-      setRunning(false);
-      setSavedAttempts((saved) => saved.filter((item) => item.id !== attempt.id));
+      completeAttempt(attempt);
       return;
     }
     let order = attempt.order;
@@ -133,9 +166,7 @@ export function QuizPage({ onBack, onTheory }: QuizPageProps) {
     }
     const nextIndex = attempt.index + 1;
     if (nextIndex >= order.length) {
-      setDone(true);
-      setRunning(false);
-      setSavedAttempts((saved) => saved.filter((item) => item.id !== attempt.id));
+      completeAttempt(attempt);
       return;
     }
     saveAttempt({ ...attempt, order, index: nextIndex, selected: null });
@@ -155,10 +186,13 @@ export function QuizPage({ onBack, onTheory }: QuizPageProps) {
           <div className="lesson-heading"><span className="eyebrow dark">ТРЕНИРОВКА · ВЫБЕРИ ТЕМУ</span><h1>Какую тему повторим?</h1><p>Отфильтруй квизы по разделу и выбери подходящую тренировку.</p></div>
           {savedAttempts.length > 0 && <section className="saved-quizzes"><h2>Продолжить позже</h2><div className="saved-quiz-grid">{savedAttempts.map((saved) => {
             const savedQuiz = quizDefinitions.find((quiz) => quiz.id === saved.quizId) ?? quizDefinitions[quizDefinitions.length - 1];
-            return <article className="saved-quiz-card" key={saved.id}><div><span className="step">СОХРАНЕНО · {saved.score}/{saved.questionIds.length} ВЕРНО</span><h3>{savedQuiz.title}</h3><p>Продолжи с того же вопроса · осталось {String(Math.floor(saved.seconds / 60)).padStart(2, "0")}:{String(saved.seconds % 60).padStart(2, "0")}</p></div><button className="button blue" onClick={() => resume(saved)}><Play /> Продолжить</button></article>;
+            return <article className="saved-quiz-card" key={saved.id}><div><span className="step">СОХРАНЕНО · {saved.score}/{saved.questionIds.length} ВЕРНО</span><h3>{savedQuiz.title}</h3><p>Ошибок: {saved.wrongAnswers} · Время: {formatDuration(saved.elapsedSeconds)} · осталось {String(Math.floor(saved.seconds / 60)).padStart(2, "0")}:{String(saved.seconds % 60).padStart(2, "0")}</p></div><button className="button blue" onClick={() => resume(saved)}><Play /> Продолжить</button></article>;
           })}</div></section>}
           <div className="catalog-filters quiz-filters" role="group" aria-label="Фильтр квизов">{quizFilters.map((filter) => <button key={filter} type="button" aria-pressed={activeFilter === filter} className={`catalog-filter ${activeFilter === filter ? "active" : ""}`} onClick={() => setActiveFilter(filter)}>{filter}</button>)}</div>
-          <div className="course-grid">{filteredQuizzes.map((quiz) => <article className="course-card quiz-topic-card" key={quiz.id}><div className="card-top"><span className="step">ДРОБИ · {quiz.questionIds.length} ВОПРОСОВ</span><span className="icon-bubble"><BookOpen /></span></div><h3>{quiz.title}</h3><p>{quiz.description}</p><button className="text-link" onClick={() => startQuiz(quiz)}>Пройти квиз <ChevronRight /></button></article>)}</div>
+          <div className="course-grid">{filteredQuizzes.map((quiz) => {
+            const bestResult = completedQuizzes.filter((result) => result.quizId === quiz.id).sort((a, b) => b.score / b.total - a.score / a.total || a.wrongAnswers - b.wrongAnswers || a.elapsedSeconds - b.elapsedSeconds)[0];
+            return <article className={`course-card quiz-topic-card ${bestResult ? "quiz-passed" : ""}`} key={quiz.id}><div className="card-top"><span className="step">ДРОБИ · {quiz.questionIds.length} ВОПРОСОВ</span>{bestResult ? <span className="quiz-completed-badge"><BadgeCheck /> Пройден</span> : <span className="icon-bubble"><BookOpen /></span>}</div><h3>{quiz.title}</h3><p>{quiz.description}</p>{bestResult && <div className="quiz-best-result">Лучший результат: {bestResult.score}/{bestResult.total} · ошибок {bestResult.wrongAnswers} · {formatDuration(bestResult.elapsedSeconds)}</div>}<button className="text-link" onClick={() => startQuiz(quiz)}>{bestResult ? "Пройти ещё раз" : "Пройти квиз"} <ChevronRight /></button></article>;
+          })}</div>
         </section>
       ) : !running && !done && attempt ? (
         <section className="result-card paused-card"><div className="result-icon"><Clock3 /></div><span className="eyebrow dark">ТРЕНИРОВКА НА ПАУЗЕ</span><h1>Продолжим?</h1><p>Квиз «{currentQuiz?.title}» сохранён: правильных ответов {attempt.score} из {attempt.questionIds.length}. Можно продолжить сейчас или вернуться к нему позже.</p><div className="result-actions"><button className="button blue" onClick={() => resume(attempt)}><Play /> Продолжить</button><button className="button outline" onClick={startOver}><RotateCcw /> Начать заново</button><button className="button outline" onClick={returnToCatalog}><LayoutGrid /> Выбрать другой квиз</button></div></section>
@@ -177,7 +211,7 @@ export function QuizPage({ onBack, onTheory }: QuizPageProps) {
           <div className="quiz-bottom"><span>{attempt.selected === null ? "Выбери один ответ" : "Ответ засчитан"}</span><button className="button blue" disabled={attempt.selected === null} onClick={nextQuestion}>Следующий вопрос <ChevronRight /></button></div>
         </section>
       ) : done && attempt ? (
-        <section className="result-card"><div className="result-icon"><Trophy /></div><span className="eyebrow dark">ТРЕНИРОВКА ЗАВЕРШЕНА</span><h1>Ты справился!</h1><div className="score">{attempt.score}<small> / {attempt.questionIds.length}</small></div><p>{attempt.score >= Math.ceil(attempt.questionIds.length * 0.75) ? "Прекрасный результат! Ты уверенно разбираешься в теме." : "Хорошая работа! Повтори правила и попробуй квиз ещё раз."}</p><div className="result-actions"><button className="button blue" onClick={startOver}>Пройти ещё раз <ChevronRight /></button><button className="button outline" onClick={onTheory}>Повторить теорию</button><button className="button outline" onClick={() => { setDone(false); setAttempt(null); setShowCatalog(true); }}>Выбрать другую тему</button></div></section>
+        <section className="result-card"><div className="result-icon"><Trophy /></div><span className="eyebrow dark">ТРЕНИРОВКА ЗАВЕРШЕНА</span><h1>Ты справился!</h1><div className="score">{attempt.score}<small> / {attempt.questionIds.length}</small></div><div className="quiz-result-stats"><div><span>Затраченное время</span><strong>{formatDuration(attempt.elapsedSeconds)}</strong></div><div><span>Неправильные ответы</span><strong>{attempt.wrongAnswers}</strong></div></div><p>{attempt.score >= Math.ceil(attempt.questionIds.length * 0.75) ? "Прекрасный результат! Ты уверенно разбираешься в теме." : "Хорошая работа! Повтори правила и попробуй квиз ещё раз."}</p><div className="result-actions"><button className="button blue" onClick={startOver}>Пройти ещё раз <ChevronRight /></button><button className="button outline" onClick={onTheory}>Повторить теорию</button><button className="button outline" onClick={() => { setDone(false); setAttempt(null); setShowCatalog(true); }}>Выбрать другую тему</button></div></section>
       ) : null}
     </main>
   );
