@@ -27,7 +27,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
             <button className="button blue" onClick={() => onNavigate("quiz")}>Начать тренировку <ChevronRight /></button>
             <button className="button outline" onClick={() => onNavigate("theory")}><BookOpen /> Изучить теорию</button>
           </div>
-          <div className="hero-note"><span><Star /> Понятные объяснения</span><span><Clock3 /> Всего 1 минута</span></div>
+          <div className="hero-note"><span><Star /> Понятные объяснения</span><span><Clock3 /> 30 секунд на вопрос</span></div>
         </div>
         <div className="hero-visual" aria-hidden="true">
           <div className="orbit orbit-one" /><div className="orbit orbit-two" />

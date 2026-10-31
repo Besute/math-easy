@@ -238,3 +238,12 @@ body, .site { background: #f2f7ff; }
 .quiz-result-stats span { color: #6b7e96; font-size: 11px; font-weight: 700; }
 .quiz-result-stats strong { color: #1749a5; font-size: 20px; }
 @media(max-width:520px) { .quiz-result-stats { grid-template-columns: 1fr; } }
+.quiz-folder-card.available { background: linear-gradient(145deg, #fff, #eaf1ff); border-color: #cfddf2; }
+.quiz-folder-card.unavailable { border-style: dashed; background: #f8faff; }
+.quiz-folder-back { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 18px; padding: 9px 12px; border: 1px solid #d7e2f1; border-radius: 11px; background: #fff; color: #47617f; font-size: 12px; font-weight: 800; }
+.quiz-folder-back:hover { background: #eaf1ff; color: #1749a5; }
+.quiz-folder-back svg { width: 16px; height: 16px; }
+.folder-heading { display: flex; align-items: center; gap: 14px; margin: 0 0 22px; padding: 18px 20px; border: 1px solid #d9e5f5; border-radius: 18px; background: #edf4ff; }
+.folder-heading .icon-bubble { flex: 0 0 42px; }
+.folder-heading h2 { margin: 5px 0; color: #173d78; font-size: 23px; }
+.folder-heading p { margin: 0; color: #657a95; font-size: 12px; }

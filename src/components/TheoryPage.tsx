@@ -42,7 +42,7 @@ export function TheoryPage({ onBack, onStartQuiz }: TheoryPageProps) {
         </article>
         <aside className="lesson-aside">
           <div className="aside-card lesson-toc"><Brain /><h3>Оглавление</h3><nav aria-label="Страницы теории">{lessons.map((item, index) => <button type="button" key={item.title} className={index === activeLesson ? "active" : ""} aria-current={index === activeLesson ? "page" : undefined} onClick={() => goTo(index)}>{item.title}</button>)}</nav></div>
-          <div className="aside-card blue-aside"><Sparkles /><h3>Готов потренироваться?</h3><p>Выбери один из тематических квизов по дробям. В большой тренировке 23 вопроса и 1 минута.</p><button onClick={onStartQuiz}>Пройти квиз <ChevronRight /></button></div>
+          <div className="aside-card blue-aside"><Sparkles /><h3>Готов потренироваться?</h3><p>Выбери один из тематических квизов по дробям. На каждый вопрос даётся 30 секунд.</p><button onClick={onStartQuiz}>Пройти квиз <ChevronRight /></button></div>
         </aside>
       </div>
     </main>
