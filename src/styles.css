@@ -211,3 +211,21 @@ body, .site { background: #f2f7ff; }
 .lesson-toc nav button { padding: 10px 12px; border: 0; border-radius: 10px; background: transparent; color: #5e7189; text-align: left; font-size: 12px; font-weight: 700; }
 .lesson-toc nav button:hover, .lesson-toc nav button.active { background: #eaf1ff; color: #1749a5; }
 @media(max-width:520px) { .lesson-page-body { min-height: 0; font-size: 15px; } .lesson-page-navigation { align-items: stretch; flex-direction: column-reverse; } .lesson-page-navigation .button { width: 100%; } .quiz-filters { gap: 7px; } }
+.topbar { position: relative; z-index: 20; }
+.nav { gap: 8px; padding: 7px; border: 1px solid #ccdaf0; border-radius: 18px; background: #fff; box-shadow: 0 8px 24px #20457918; }
+.nav > button { min-height: 42px; padding: 0 15px; border-radius: 12px; color: #344e70; }
+.nav > button:not(.nav-cta):hover { background: #eaf1ff; color: #1749a5; }
+.nav .nav-cta { min-height: 42px; padding: 0 17px; border-radius: 12px; }
+@media(max-width:800px) { .nav { gap: 10px; border-color: #d6e1f1; } .nav > button:not(.nav-cta) { text-align: left; } }
+.quiz-head-actions { display: flex; align-items: center; gap: 10px; }
+.quiz-menu-link { display: inline-flex; align-items: center; gap: 7px; padding: 10px 12px; border: 1px solid #d8e3f2; border-radius: 11px; background: #fff; color: #355579; font-size: 11px; font-weight: 800; }
+.quiz-menu-link:hover { background: #eaf1ff; border-color: #b9cdee; color: #1749a5; }
+.quiz-menu-link svg { width: 15px; height: 15px; }
+.saved-quizzes { margin: 0 0 30px; }
+.saved-quizzes > h2 { margin: 0 0 14px; color: #173d78; font-size: 22px; letter-spacing: -.03em; }
+.saved-quiz-grid { display: grid; gap: 12px; }
+.saved-quiz-card { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px 20px; border: 1px solid #d5e3f7; border-radius: 18px; background: #eaf1ff; }
+.saved-quiz-card h3 { margin: 8px 0 4px; color: #183a6c; font-size: 17px; }
+.saved-quiz-card p { margin: 0; color: #647995; font-size: 12px; }
+.saved-quiz-card .button { flex: 0 0 auto; }
+@media(max-width:520px) { .quiz-head { align-items: flex-start; flex-direction: column; } .quiz-head-actions { width: 100%; justify-content: space-between; } .saved-quiz-card { align-items: stretch; flex-direction: column; } }

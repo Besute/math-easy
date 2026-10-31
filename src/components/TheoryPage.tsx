@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, Brain, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 
 type TheoryPageProps = { onBack: () => void; onStartQuiz: () => void };
@@ -18,15 +18,22 @@ const lessons: Lesson[] = [
 
 export function TheoryPage({ onBack, onStartQuiz }: TheoryPageProps) {
   const [activeLesson, setActiveLesson] = useState(0);
+  const notesRef = useRef<HTMLElement>(null);
   const lesson = lessons[activeLesson];
-  const goTo = (index: number) => { setActiveLesson(index); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const goTo = (index: number) => {
+    setActiveLesson(index);
+    requestAnimationFrame(() => {
+      const top = notesRef.current?.getBoundingClientRect().top ?? 0;
+      window.scrollTo({ top: window.scrollY + top - 24, behavior: "smooth" });
+    });
+  };
 
   return (
     <main className="inner-page lesson-page">
       <button className="back-link" onClick={onBack}><ArrowLeft /> На главную</button>
       <div className="lesson-heading"><span className="eyebrow dark">УРОК · 5–7 КЛАСС</span><h1>Обыкновенные дроби</h1><p>Выбирай страницу урока в оглавлении и изучай правила в удобном темпе.</p></div>
       <div className="lesson-layout">
-        <article className="lesson-content lesson-page-card">
+        <article className="lesson-content lesson-page-card" ref={notesRef}>
           <div className="lesson-page-progress"><span style={{ width: `${((activeLesson + 1) / lessons.length) * 100}%` }} /></div>
           <div className="lesson-page-kicker">СТРАНИЦА {activeLesson + 1} ИЗ {lessons.length}</div>
           <h2 className="lesson-page-title">{lesson.title}</h2>
